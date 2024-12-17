@@ -4,6 +4,9 @@ from ts import *
 def mutex_ring():
     
     #Classic mutex in a ring - a token moves around a ring, allowing the holder to enter the critical section
+    #taken from Fang, Y., Piterman, N., Pnueli, A. and Zuck, L., 2004, January.
+    #Liveness with invisible ranking. 
+    #In International Workshop on Verification, Model Checking, and Abstract Interpretation (pp. 223-238). Berlin, Heidelberg: Springer Berlin Heidelberg.
 
     print('mutex_ring')
 
@@ -98,12 +101,13 @@ def mutex_ring():
     less_btw_her_first = lambda sym,param1,param2: Or(sym['btw'](sym['node_her1'],param1['n'],param2['n']),And(param1['n']==sym['node_her1'],param2['n']!=sym['node_her1'])) 
     less_btw_her_last = lambda sym,param1,param2: Or(sym['btw'](sym['node_her1'],param1['n'],param2['n']),And(param2['n']==sym['node_her1'],param1['n']!=sym['node_her1'])) 
 
-    ##first rank
+    ##first rank - as described in section 6
     rank_lex = ParLexFreeRank(delta_free,n_node,less_btw_her_last,{})
 
     rank_lex.print_reduced(ts)
 
-    ##second rank
+    ##second rank - as described in appendix B
+    #somehow more intuitive but requires all these hints, so overall worse
     hint1 = lambda sym1,sym2,param1,param2: sym1['epsilon_token']
     hint2 = lambda sym1,sym2,param1,param2: sym2['epsilon_token']
     hint_skd = lambda sym1,sym2,param1,param2 : sym1['skd']
@@ -127,11 +131,11 @@ def mutex_ring():
                           Not(q(sym))) 
     psi = lambda sym,param: sym['token'](param['n'])
 
-    proof = LivenessProof(prop,rank_lex,rho,phi,[psi])
+    proof = LivenessProof(prop,rank_lin,rho,phi,[psi])
 
     import time
     start_time = time.time()
-    proof.premise_reduced(ts)
+    proof.check_proof(ts)
     end_time = time.time()
     print(end_time-start_time)
 

@@ -943,13 +943,18 @@ class ParPermFreeRank(FreeRank):
             return instantiated_formula
 
         return res
+    
+    def print_structure(self):
+        base_rank = self.base_rank
+        param_quant = self.param_quant
+        print('ParPerm(',param_quant,', ',end='')
+        base_rank.print_structure()
+        print(')',end='')
         
 
 #this works but it would be helpful to have incomplete lists
 #or more grandious, to allow a different number of permutations for different hints - radical, doesn't really fit the framework
-class ParPermFreeRank_variant(FreeRank):
-    #implementation very much not finished.
-    
+class ParPermFreeRank_variant(FreeRank):    
     #implemenets the permutation constructor by allowing permutations of the form
     # a_1,....a_k <-> b_1,...,b_k where k is the input num_permute.
     def __init__(self,base_rank: FreeRank,param_quant={},
@@ -1077,8 +1082,15 @@ class ParPermFreeRank_variant(FreeRank):
             return instantiated_formula
 
         return res
-        
+    
+    def print_structure(self):
+        base_rank = self.base_rank
+        param_quant = self.param_quant
+        print('ParPerm(',param_quant,', ',end='')
+        base_rank.print_structure()
+        print(')',end='')
 
+"""
 #Doesnt have reduced currently, and has poor performance seemingly.
 class ParPermFreeRank_bounded(FreeRank):
     #implementation very much not finished.
@@ -1148,8 +1160,7 @@ class ParPermFreeRank_bounded(FreeRank):
     def create_equal(self): 
         return self.create_equal_or_conserved(self.base_rank.equal)
 
-
-
+"""
 
 
 #helper function for classes which use an order in the system
