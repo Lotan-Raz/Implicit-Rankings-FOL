@@ -2,7 +2,11 @@ from z3 import *
 from ts import *
 
 def binary_counter():
-    #this is similar to the original modeling from runtime squeezers paper
+
+    #original modeling of an increasing counter
+    #from : Oren Ish-Shalom, Shachar Itzhaky, Noam Rinetzky, and Sharon Shoham. 2022. 
+    #Runtime Complexity Bounds Using Squeezers. 
+    #ACM Trans. Program. Lang. Syst. 44, 3, Article 17 (September 2022), 36 pages. https://doi.org/10.1145/3527632
 
     print('binary_counter')
 
@@ -99,6 +103,7 @@ def binary_counter():
     proof.check_proof(ts)
 
 def binary_counter_rev():
+
     #how we present in the paper: decreasing counter instead of increasing, and order of msb and lsb flipped.
 
     print('binary_counter_reversed')
@@ -124,7 +129,6 @@ def binary_counter_rev():
         ForAll([X,Y],Implies(And(sym['le'](X,Y),sym['le'](Y,X)),X==Y)),
         ForAll([X,Y,Z],Implies(And(sym['le'](X,Y),sym['le'](Y,Z)),sym['le'](X,Z))),
         ForAll([X,Y],Or(sym['le'](X,Y),sym['le'](Y,X))),
-        #ForAll(X,sym['le'](sym['zero'],X)),
         ForAll(X,sym['le'](X,sym['max']))
     )
     axiom = lambda sym: And(axiom_le(sym))
@@ -153,7 +157,6 @@ def binary_counter_rev():
     tr_param = {}
     def tr_decrease(sym1,sym2,param):
         return And(
-        #sym2['zero']==sym1['zero'],
         sym2['max']==sym1['max'],
         ForAll([X,Y],sym2['le'](X,Y)==sym1['le'](X,Y)),
         If(sym1['a'](sym1['ptr'])==False,
@@ -186,7 +189,7 @@ def binary_counter_rev():
     x_was_last_1 = lambda sym,param: And(sym['a'](param['i']),sym['le'](param['i'],sym['ptr']))
     free_rank = BinaryFreeRank(x_was_last_1,i_index)
     lex_rank = ParLexFreeRank(free_rank,i_index,index_order)
-    lex_rank.print_reduced(ts)
+    #lex_rank.print_reduced(ts)
 
     final_rank = LexFreeRank([lex_rank,order_rank])
     #final_rank.print_reduced(ts)
@@ -195,27 +198,8 @@ def binary_counter_rev():
     
     import time
     start_time = time.time()
-    proof.premise_reduced(ts)
+    proof.check_proof(ts)
     end_time = time.time()
     print(end_time-start_time)
 
 binary_counter_rev()
-
-
-"""
-test of the immutable order axioms
-solver = Solver()
-tr = ts.create_tr()
-s0 = ts.create_state('0')
-s1 = ts.create_state('1')
-solver.add(
-    tr(s0.get_dict(),s1.get_dict()),
-    axiom(s0.get_dict()),
-    Not(strict_immut_order_axioms(reverse_order,i_index)(s0.get_dict(),s1.get_dict())),
-    Exists([X,Y],ForAll(Z,Or(Z==X,Z==Y)))
-)
-print(solver)
-print(solver.check())
-print(solver.model())
-"""
-
