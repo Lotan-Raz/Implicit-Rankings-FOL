@@ -1,5 +1,5 @@
 from z3 import *
-from typing import Dict, Callable, Tuple, List
+from typing import Dict, Callable, Tuple, List, Any
 import itertools
 
 #Currently have 4 permutation classes - need to choose which ones we want to keep
@@ -177,10 +177,13 @@ class State:
     
     def get_sym(self):
         return list(self.dict.values())
+
+type TransitionFormula = Any
+type Param = Any
     
 #A class that defines a transition system
 class TS:
-    def __init__(self,sorts:list,axiom = true ,init = true ,transitions:list = [], constant_sym:dict={}, relation_sym:dict={}, function_sym:dict={} ):
+    def __init__(self,sorts:list,axiom = true ,init = true ,transitions:list[tuple[str, Param, TransitionFormula]] = [], constant_sym:dict={}, relation_sym:dict={}, function_sym:dict={} ):
         self.sorts=sorts
         self.axiom=axiom
         self.init=init
