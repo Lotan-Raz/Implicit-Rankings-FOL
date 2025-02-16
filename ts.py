@@ -509,7 +509,7 @@ class LinFreeRank(FreeRank):
 
     def print_structure(self):
         ranks = self.ranks
-        print('+(',end='')
+        print('Lin(',end='')
         for rank in ranks:
             rank.print_structure()
             print(',',end='')
@@ -818,10 +818,6 @@ def equal_to_one_of_list(free_vars,list_dicts):
         #we give lists_dicts[i] as the first component because it may contain less keys if the hints don't cover all variables
         #not tested
     return Or(equalities)
-
-def mixed_inequalities(list_dictsA,list_dictsB):
-    
-    pass
 
 class ParPermFreeRank(FreeRank):
     #implementation very much not finished.
@@ -1243,7 +1239,7 @@ class PositionInOrderFreeRank(FreeRank):
         return self.create_any(conserved_formula)
 
     def print_structure(self):
-        print('Ord',end='')
+        print('Pos',end='')
 
 class ParLexFreeRank(FreeRank):
     def __init__(self,

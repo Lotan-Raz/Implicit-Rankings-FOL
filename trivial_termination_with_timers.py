@@ -49,49 +49,54 @@ def trivial_termination_with_timers():
 
     intersection = IntersectionTS(ts, timer_system)
 
+    
     pre = intersection.create_state("_pre")
     pre_sym = pre.get_dict()
     post = intersection.create_state("_post")
     post_sym = post.get_dict()
-
     print("---Axioms---")
     print(intersection.axiom(pre_sym))
     print(intersection.axiom(post_sym))
-
     print("---Init---")
     print(intersection.init(pre_sym))
-
     print("---Transition---")
     print(intersection.tr(pre_sym, post_sym))
+    
+    #The system rank is the number of on nodes
+    param_n = {'n':Node}
+    on =  lambda sym, param:sym['on'](param['n'])
+    not_on = lambda sym, param:Not(sym['on'](param['n']))
+    bin = BinaryFreeRank(lambda sym, param:sym['on'](param['n']),param_n)
+    number_of_on = ParPointwiseFreeRank(bin, param_n)
 
-
-    #
-    #
-    #
-    # r1 = lambda sym,param: sym['skd']==param['n']
-    # p = true
-    # q = lambda sym: ForAll(X,Not(sym['on'](X)))
-    #
-    # prop = LivenessProperty(p,q,[r1],[param_r1])
-    #
-    # rho = true
-    # phi = lambda sym: And(rho(sym),Not(q(sym)))
-    # psi = lambda sym,param: sym['on'](param['n'])
-    #
-    #
-    # ##You need to find appropriate rank using the constructors
-    param_r1 = {'n':Node}
-    bin = BinaryFreeRank(lambda sym, param:sym['on'](param['n']),param_r1)
-    number_of_on = ParPointwiseFreeRank(bin, param_r1)
-
-    reduced = lambda sym1, sym2, param1, param2: z3.Or(
-        z3.And(sym1["on"](param1["n"]), z3.Not(sym2["on"](param2["n"]))),
-        sym2["t_<skd == X>"](param2["n"]) < sym1["t_<skd == X>"](param1["n"])
+    #the number of on nodes is reduced when an on node is scheduled 
+    #so we aggregate the timers of the on nodes
+    param_int = {'x':IntSort()}	
+    skd_timer = PositionInOrderFreeRank(
+        lambda sym,param1,param2 : param1['x']<param2['x'],
+        param_int,
+        {'x':lambda sym,param:sym['t_<skd == X>'](param['n'])}
     )
+    trivial_rank = BinaryFreeRank(lambda *args:True,param_n)
+    timer_for_on = LinFreeRank(
+        [skd_timer,trivial_rank],
+        [on,not_on]
+    )
+    all_timers = ParPointwiseFreeRank(timer_for_on,param_n)
 
-    #
-    # proof = LivenessProof(prop,rank,rho,phi,[psi])
-    # proof.check_proof(ts)
+    rank = LexFreeRank([number_of_on,all_timers])
 
+    timer_invariant = lambda sym: And(
+        ForAll(X,sym['t_GF<skd == X>'](X)==0),
+        #ForAll(X,sym['t_F<skd == X>'](X)==0), follows from previous
+        sym['t_G<Exists(X, on(X))>']==0,
+        #Exists(X,sym['on'](X)),
+    )
+    system_invariant = lambda sym: And()
+    invariant = lambda sym: And(timer_invariant(sym),system_invariant(sym))
+
+    proof = TerminationProof(rank,invariant)
+    proof.check_proof(intersection)
+    
 
 trivial_termination_with_timers()
