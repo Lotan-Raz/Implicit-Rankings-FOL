@@ -336,14 +336,17 @@ class FreeRank:
         print('user_provided')
 
 class FinitenessCondition:
-    def __init__(self,formula,param_fin,param):
+    #you could also assume some invariant in these checks but currently i didn't implement this (it shouldn't really help)
+    def __init__(self,formula,param_fin,param={}):
         self.formula = formula #the formula that is supposed to have finitely many satisfying assignments
         self.param_fin = param_fin #the parameters for which there are supposed to be finitely many
         self.param = param #the parameters that remain free
 
     def finiteness_check(self,ts,k=1):
-        self.init_check(self,ts,k)
-        self.tr_check(self,ts,k)
+        #buggy when k=0 
+        res_init = self.init_check(ts,k)
+        res_tr = self.tr_check(ts,k)
+        return res_init and res_tr
     
     def init_check(self,ts,k=1):
         init = ts.init
@@ -351,27 +354,83 @@ class FinitenessCondition:
         param_fin = self.param_fin
         param = self.param
         state0 = ts.create_state('0')
-        vars_forall_dict = create_dictionary_of_variables(param,'_f')
         vars_fin_dict = create_dictionary_of_variables(param_fin,'_fin')
-        vars_forall = list(vars_forall_dict.values())
         vars_fin = list(vars_fin_dict.values())
         init_0 = init(state0.get_dict())
         size_variables = []
         for i in range(k):
             new_vars = create_dictionary_of_variables(param_fin,'_fin'+str(i))
             size_variables.append(new_vars)
-        #draft
-        #for any assignments to the free variables (param)
-        #there exists at most k assignments to the variables in param_fin
-        #such that formula holds.
-        size_constraint = ForAll(vars_forall,Exists(size_variables,ForAll(vars_fin,Implies(
+        #union of all values in the dictionaries of size_variables:
+        all_exist_vars = list(itertools.chain(*[list(new_vars.values()) for new_vars in size_variables]))
+        
+        vars_forall_dict = create_dictionary_of_variables(param,'_f')
+        vars_forall = list(vars_forall_dict.values())
+
+        if vars_forall == []:
+            size_constraint = Exists(all_exist_vars,ForAll(vars_fin,Implies(
+            formula(state0.get_dict(),vars_fin_dict),
+            Or([equality_dicts(vars_fin_dict,new_vars) for new_vars in size_variables])
+            )))
+        else:
+            size_constraint = ForAll(vars_forall,Exists(all_exist_vars,ForAll(vars_fin,Implies(
             formula(state0.get_dict(),vars_forall_dict | vars_fin_dict),
-            Or(equality_dicts(vars_fin_dict,new_vars) for new_vars in size_variables)
-        ))))
-        pass
+            Or([equality_dicts(vars_fin_dict,new_vars) for new_vars in size_variables])
+            ))))
+        negated_size_constraint = Not(size_constraint)
+        
+        constraints = [init_0,negated_size_constraint]
+        sat_result = ts.ts_sat_check(constraints,[state0])
+        print("at most",k,"elements in init result:",sat_result[0])
+        if sat_result[0] == z3.sat and sat_result[1]!=None:
+            print_model_in_order(sat_result[1],state0.get_sym())
+        return (sat_result[0] == z3.unsat)
 
     def tr_check(self,ts,k=1):
-        pass
+        tr = ts.tr
+        formula = self.formula
+        param_fin = self.param_fin
+        param = self.param
+        state0 = ts.create_state('0')
+        state1 = ts.create_state('1')
+        vars_fin_dict = create_dictionary_of_variables(param_fin,'_fin')
+        vars_fin = list(vars_fin_dict.values())
+        tr_01 = tr(state0.get_dict(),state1.get_dict())
+        size_variables = []
+        for i in range(k):
+            new_vars = create_dictionary_of_variables(param_fin,'_fin'+str(i))
+            size_variables.append(new_vars)
+        #union of all values in the dictionaries of size_variables:
+        all_exist_vars = list(itertools.chain(*[list(new_vars.values()) for new_vars in size_variables]))
+        
+        vars_forall_dict = create_dictionary_of_variables(param,'_f')
+        vars_forall = list(vars_forall_dict.values())
+
+        if vars_forall == []:
+            size_constraint = Exists(all_exist_vars,ForAll(vars_fin,Implies(
+            formula(state1.get_dict(),vars_fin_dict),
+            Or(
+                Or([equality_dicts(vars_fin_dict,new_vars) for new_vars in size_variables]),
+                formula(state0.get_dict(),vars_fin_dict)
+            )
+            )))
+        else:
+            size_constraint = ForAll(vars_forall,Exists(all_exist_vars,ForAll(vars_fin,Implies(
+            formula(state1.get_dict(),vars_fin_dict | vars_forall_dict),
+            Or(
+                Or([equality_dicts(vars_fin_dict,new_vars) for new_vars in size_variables]),
+                formula(state0.get_dict(),vars_fin_dict  | vars_forall_dict)
+            )
+            )))
+            )
+        negated_size_constraint = Not(size_constraint)
+        
+        constraints = [tr_01,negated_size_constraint]
+        sat_result = ts.ts_sat_check(constraints,[state0])
+        print("at most",k,"elements added in each transition result:",sat_result[0])
+        if sat_result[0] == z3.sat and sat_result[1]!=None:
+            print_model_in_order(sat_result[1],state0.get_sym() + state1.get_sym())
+        return (sat_result[0] == z3.unsat)
 
 class BinaryFreeRank(FreeRank):
     #This class generates formulas with different free variables for the pre and post states.

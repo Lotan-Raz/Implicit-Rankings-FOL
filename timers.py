@@ -555,10 +555,11 @@ class TerminationProof:
 
     def premise_side(self, system: TS) -> bool:
         rank_side_conditions = self.rank.side
+        results = []
         for condition in rank_side_conditions:
-            pass # todo
-
-        return True  # todo
+            res = condition.finiteness_check(system)
+            results.append(res)
+        return all(results)
 
 
 ### Tests

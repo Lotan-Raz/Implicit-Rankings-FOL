@@ -25,9 +25,9 @@ def trivial_termination_with_timers():
     
     def init(sym):
         return And(
-            ForAll(X,sym['on'](X)),
             ForAll(X,Not(sym['d'](X))),
-            Not(sym['start'])
+            Not(sym['start']),
+            ForAll(X,sym['on'](X))
         )
     
     param_add_to_d = {'n':Node}
@@ -63,6 +63,11 @@ def trivial_termination_with_timers():
 
     ts = TS(sorts,axiom,init,[tr1,tr2,tr3],constant_sym,relation_sym,function_sym)
 
+    #testing finiteness 
+    #finite_constraint = FinitenessCondition(lambda sym,param: sym['d'](param['n']),{'n':Node},{})
+    #print(finite_constraint.finiteness_check(ts))
+
+
     skd = z3.Const("skd", Node)
     on = z3.Function("on", Node, z3.BoolSort())
     start = z3.Bool("start")
@@ -75,23 +80,24 @@ def trivial_termination_with_timers():
 
     intersection = IntersectionTS(ts, timer_system)
 
-    pre = intersection.create_state("_pre")
-    pre_sym = pre.get_dict()
-    post = intersection.create_state("_post")
-    post_sym = post.get_dict()
-    print("---Axioms---")
-    print(intersection.axiom(pre_sym))
-    print(intersection.axiom(post_sym))
-    print("---Init---")
-    print(intersection.init(pre_sym))
-    print("---Transition---")
-    print(intersection.tr(pre_sym, post_sym))
     
+    # pre = intersection.create_state("_pre")
+    # pre_sym = pre.get_dict()
+    # post = intersection.create_state("_post")
+    # post_sym = post.get_dict()
+    # print("---Axioms---")
+    # print(intersection.axiom(pre_sym))
+    # print(intersection.axiom(post_sym))
+    # print("---Init---")
+    # print(intersection.init(pre_sym))
+    # print("---Transition---")
+    # print(intersection.tr(pre_sym, post_sym))
+
     #The system rank is the number of on nodes
     param_n = {'n':Node}
-    on =  lambda sym, param:sym['on'](param['n'])
-    not_on = lambda sym, param:Not(sym['on'](param['n']))
-    bin = BinaryFreeRank(lambda sym, param:sym['on'](param['n']),param_n)
+    on =  lambda sym, param: sym['on'](param['n'])
+    not_on = lambda sym, param: And(Not(sym['on'](param['n'])),sym['d'](param['n']))
+    bin = BinaryFreeRank(on,param_n)
     number_of_on = ParPointwiseFreeRank(bin, param_n)
 
     #the number of on nodes is reduced when an on node is scheduled 
@@ -129,13 +135,17 @@ def trivial_termination_with_timers():
         #ForAll(X,sym['t_F<skd == X>'](X)==0), follows from previous
         sym['t_G<Exists(X, on(X))>']==0,
         #Exists(X,sym['on'](X)),
-        Or(sym['start'],sym['t_<start>']>0)
+        Or(sym['start'],sym['t_<start>']>0),
     )
-    system_invariant = lambda sym: And()
+    system_invariant = lambda sym: And(
+        Implies(sym['start'],ForAll(X,sym['d'](X))),
+        Implies(Not(sym['start']),ForAll(X,sym['on'](X))),
+    )
     invariant = lambda sym: And(timer_invariant(sym),system_invariant(sym))
 
     proof = TerminationProof(rank,invariant)
     proof.check_proof(intersection)
-    
+    #something is messy about the finiteness checks 
+    #how do we verify that the number of 'on' nodes is finite? initially all nodes are on. 
 
 trivial_termination_with_timers()
