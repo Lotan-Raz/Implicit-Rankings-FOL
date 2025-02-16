@@ -187,10 +187,10 @@ class Timer(ABC):
             return timer
 
     def quantified_axiom(self, sym: Sym) -> z3.BoolRef:
-        return forall_if_vars(list(self.variables.values()), self.axiom(sym))
+        return forall_if_vars(list(self.variables.values()), self._axiom(sym))
 
     @abstractmethod
-    def axiom(self, sym: Sym) -> z3.BoolRef:
+    def _axiom(self, sym: Sym) -> z3.BoolRef:
         ...
 
     @property
@@ -223,9 +223,9 @@ class Timer(ABC):
         return dict_spec
 
     def quantified_transition(self, sym1: Sym, sym2: Sym) -> z3.BoolRef:
-        return forall_if_vars(list(self.variables.values()), self.transition(sym1, sym2))
+        return forall_if_vars(list(self.variables.values()), self._transition(sym1, sym2))
 
-    def transition(self, sym1: Sym, sym2: Sym) -> z3.BoolRef:
+    def _transition(self, sym1: Sym, sym2: Sym) -> z3.BoolRef:
         return z3.Implies(
             self.expr(sym1) > 0,
             self.expr(sym2) == self.expr(sym1) - 1
@@ -251,7 +251,7 @@ class PropTimer(Timer):
     prop: z3.BoolRef
     sym: Sym
 
-    def axiom(self, sym: Sym) -> z3.BoolRef:
+    def _axiom(self, sym: Sym) -> z3.BoolRef:
         return z3.Implies(self.expr(sym) == 0, rewrite_expr(self.prop, sym))
 
     @cached_property
@@ -260,7 +260,7 @@ class PropTimer(Timer):
 
     @cached_property
     def free_variables(self) -> dict[str, z3.SortRef]:
-        return {key: value for key, value in free_variables(self.prop).items() if key not in self.sym}
+        return {name: sort for name, sort in free_variables(self.prop).items() if name not in self.sym}
 
     def __str__(self) -> str:
         return f"<{self.prop}>"
@@ -271,7 +271,7 @@ class BoolOpTimer(Timer):
     child_timers: tuple[Timer, ...]
     is_and: bool
 
-    def axiom(self, sym: Sym) -> z3.BoolRef:
+    def _axiom(self, sym: Sym) -> z3.BoolRef:
         if self.is_and:
             op = z3.And
         else:
@@ -306,11 +306,11 @@ class BoolOpTimer(Timer):
 class GloballyTimer(Timer):
     body: Timer
 
-    def axiom(self, sym: Sym) -> z3.BoolRef:
+    def _axiom(self, sym: Sym) -> z3.BoolRef:
         return z3.Implies(self.expr(sym) == 0, self.body.expr(sym) == 0)
 
-    def transition(self, sym1: Sym, sym2: Sym) -> z3.BoolRef:
-        return z3.And(super().transition(sym1, sym2), z3.Implies(self.expr(sym1) == 0, self.expr(sym2) == 0))
+    def _transition(self, sym1: Sym, sym2: Sym) -> z3.BoolRef:
+        return z3.And(super()._transition(sym1, sym2), z3.Implies(self.expr(sym1) == 0, self.expr(sym2) == 0))
 
     @cached_property
     def children(self) -> tuple["Timer", ...]:
@@ -328,7 +328,7 @@ class GloballyTimer(Timer):
 class EventuallyTimer(Timer):
     body: Timer
 
-    def axiom(self, sym: Sym) -> z3.BoolRef:
+    def _axiom(self, sym: Sym) -> z3.BoolRef:
         return z3.Implies(self.expr(sym) == 0, self.body.expr(sym) >= 0)
 
     @cached_property
@@ -349,7 +349,7 @@ class QuantifierTimer(Timer):
     is_forall: bool
     quantifier_variables: dict[str, z3.SortRef]
 
-    def axiom(self, sym: Sym) -> z3.BoolRef:
+    def _axiom(self, sym: Sym) -> z3.BoolRef:
         if self.is_forall:
             quantifier = z3.ForAll
         else:
@@ -446,7 +446,7 @@ def timer_transition_system(formula: z3.BoolRef, given_sym: Sym) -> TS:
 
     def axiom(sym: Sym) -> z3.BoolRef:
         return z3.And(*[
-            timer.axiom(sym)
+            timer.quantified_axiom(sym)
             for timer in all_timers
         ])
 
@@ -455,7 +455,7 @@ def timer_transition_system(formula: z3.BoolRef, given_sym: Sym) -> TS:
 
     def transition(sym1: Sym, sym2: Sym, _param) -> z3.BoolRef:
         return z3.And(*[
-            timer.transition(sym1, sym2)
+            timer.quantified_transition(sym1, sym2)
             for timer in all_timers
         ])
 
