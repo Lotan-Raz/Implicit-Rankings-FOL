@@ -554,6 +554,10 @@ class TerminationProof:
         return result == z3.unsat
 
     def premise_side(self, system: TS) -> bool:
+        rank_side_conditions = self.rank.side
+        for condition in rank_side_conditions:
+            pass # todo
+
         return True  # todo
 
 

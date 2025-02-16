@@ -293,11 +293,13 @@ class TS:
 
 class FreeRank:
     #in this class equal,reduced,conserved take sym1,sym2,param1={},param2={}
-    def __init__(self,equal,reduced,conserved,param={}):
+    def __init__(self,equal,reduced,conserved,min,side,param={}):
         self.equal = equal 
         self.reduced = reduced
         self.conserved = conserved
         self.param = param
+        self.min = min
+        self.side = side #will be a set of FiniteConditions
             
     def create_conserved(self):
         def res(sym1,sym2,param1={},param2={}):
@@ -325,8 +327,51 @@ class FreeRank:
         var_dict1 = create_dictionary_of_variables(self.param,'1')
         print(self.equal(state0.get_dict(),state1.get_dict(),var_dict0,var_dict1))
 
+    def print_min(self,ts):
+        state0 = ts.create_state('0')
+        var_dict0 = create_dictionary_of_variables(self.param,'0')
+        print(self.min(state0.get_dict(),var_dict0))
+            
     def print_structure(self):
         print('user_provided')
+
+class FinitenessCondition:
+    def __init__(self,formula,param_fin,param):
+        self.formula = formula #the formula that is supposed to have finitely many satisfying assignments
+        self.param_fin = param_fin #the parameters for which there are supposed to be finitely many
+        self.param = param #the parameters that remain free
+
+    def finiteness_check(self,ts,k=1):
+        self.init_check(self,ts,k)
+        self.tr_check(self,ts,k)
+    
+    def init_check(self,ts,k=1):
+        init = ts.init
+        formula = self.formula
+        param_fin = self.param_fin
+        param = self.param
+        state0 = ts.create_state('0')
+        vars_forall_dict = create_dictionary_of_variables(param,'_f')
+        vars_fin_dict = create_dictionary_of_variables(param_fin,'_fin')
+        vars_forall = list(vars_forall_dict.values())
+        vars_fin = list(vars_fin_dict.values())
+        init_0 = init(state0.get_dict())
+        size_variables = []
+        for i in range(k):
+            new_vars = create_dictionary_of_variables(param_fin,'_fin'+str(i))
+            size_variables.append(new_vars)
+        #draft
+        #for any assignments to the free variables (param)
+        #there exists at most k assignments to the variables in param_fin
+        #such that formula holds.
+        size_constraint = ForAll(vars_forall,Exists(size_variables,ForAll(vars_fin,Implies(
+            formula(state0.get_dict(),vars_forall_dict | vars_fin_dict),
+            Or(equality_dicts(vars_fin_dict,new_vars) for new_vars in size_variables)
+        ))))
+        pass
+
+    def tr_check(self,ts,k=1):
+        pass
 
 class BinaryFreeRank(FreeRank):
     #This class generates formulas with different free variables for the pre and post states.
@@ -337,6 +382,8 @@ class BinaryFreeRank(FreeRank):
         self.equal = self.create_equal()
         self.reduced = self.create_reduced()
         self.conserved = self.create_conserved()
+        self.min = self.create_min()
+        self.side = self.create_side() 
     
     def create_equal(self):
         pred = self.predicate
@@ -356,6 +403,16 @@ class BinaryFreeRank(FreeRank):
             return Implies(pred(sym2,param2),pred(sym1,param1))
         return res
     
+    def create_min(self):
+        pred = self.predicate
+        def res(sym,param):
+            return Not(pred(sym,param))
+        return res
+    
+    def create_side(self):
+        #empty set of finiteness conditions
+        return set() 
+    
     def print_structure(self):
         print('Bin',end='')
 
@@ -366,6 +423,8 @@ class PointwiseFreeRank(FreeRank):
         self.equal = self.create_equal() 
         self.reduced = self.create_reduced()
         self.conserved = self.create_conserved()
+        self.min = self.create_min()
+        self.side = self.create_side()
     
     def create_equal(self):
         ranks = self.ranks
@@ -391,6 +450,18 @@ class PointwiseFreeRank(FreeRank):
                 Or([reduced(sym1,sym2,param1,param2) for reduced in reduceds]))
         return res
     
+    def create_min(self):    
+        ranks = self.ranks
+        mins = [rank.min for rank in ranks]
+        def res(sym,param):
+            return And([min(sym,param) for min in mins])
+        return res
+    
+    def create_side(self):
+        ranks = self.ranks
+        sides = [rank.side for rank in ranks]
+        return set.union(*sides)
+    
     def print_structure(self):
         ranks = self.ranks
         print('PW(',end='')
@@ -406,6 +477,8 @@ class LexFreeRank(FreeRank):
         self.equal = self.create_equal() 
         self.reduced = self.create_reduced()
         self.conserved = self.create_conserved()
+        self.min = self.create_min()
+        self.side = self.create_side()
     
     def create_equal(self):
         ranks = self.ranks
@@ -439,6 +512,18 @@ class LexFreeRank(FreeRank):
                 Or([formula(sym1,sym2,param1,param2) for formula in reduced_i_and_conserved_belows]))
         return res
     
+    def create_min(self):
+        ranks = self.ranks
+        mins = [rank.min for rank in ranks]
+        def res(sym,param):
+            return And([min(sym,param) for min in mins])
+        return res
+    
+    def create_side(self):
+        ranks = self.ranks
+        sides = [rank.side for rank in ranks]
+        return set.union(*sides)
+    
     def print_structure(self):
         ranks = self.ranks
         print('Lex(',end='')
@@ -456,6 +541,8 @@ class LinFreeRank(FreeRank):
         self.equal = self.create_equal()
         self.reduced = self.create_reduced()
         self.conserved = self.create_conserved()
+        self.min = self.create_min()
+        self.side = self.create_side()
 
     def create_disjoint_conds(self):
         conditions = self.conditions
@@ -507,6 +594,18 @@ class LinFreeRank(FreeRank):
         return lambda sym1,sym2,param1={},param2={} : Or(conserved_in_same_comps(sym1,sym2,param1,param2),
                                                    reduced_in_diff_comps(sym1,sym2,param1,param2))
 
+    def create_min(self):
+        conds = self.conditions
+        #all conditions don't hold
+        def res(sym,param):
+            return Not(And([cond(sym,param) for cond in conds]))
+        return res
+
+    def create_side(self):
+        ranks = self.ranks
+        sides = [rank.side for rank in ranks]
+        return set.union(*sides)        
+ 
     def print_structure(self):
         ranks = self.ranks
         print('Lin(',end='')
@@ -515,6 +614,7 @@ class LinFreeRank(FreeRank):
             print(',',end='')
         print(')',end='')
 
+#NOT USED
 class SubstFreeRank(FreeRank):
     def __init__(self,base_rank,param_subst : dict,terms_subst : dict,param={}):
         self.base_rank = base_rank
@@ -579,6 +679,8 @@ class ParPointwiseFreeRank(FreeRank):
         self.equal = self.create_equal()
         self.reduced = self.create_reduced()
         self.conserved = self.create_conserved() 
+        self.min = self.create_min()
+        self.side = self.create_side()
 
     def check_pointwise(self,formula):
         vars_forall_dict = create_dictionary_of_variables(self.param_quant,'_f')
@@ -617,6 +719,27 @@ class ParPointwiseFreeRank(FreeRank):
             return And(reduced,forall_part)
         return res
     
+    def create_min(self):
+        base_min = self.base_rank.min
+        vars_forall_dict = create_dictionary_of_variables(self.param_quant,'_f')
+        vars_forall = list(vars_forall_dict.values())
+        def res(sym,param):
+            paramforall = param | vars_forall_dict
+            return ForAll(vars_forall,base_min(sym,paramforall))
+        return res
+    
+    def create_side(self):
+        #add a new side condition to the existing side conditions from base_rank
+        base_side = self.base_rank.side
+        #new side condition - finitely many assignments to param_quant such that base_min doesn't hold
+        base_min = self.base_rank.min   
+        new_side_condition = FinitenessCondition(
+            lambda sym,param: Not(base_min(sym,param)),
+            self.param_quant, #finitely many assignments to the quantified parameters
+            self.param #the parameters that remain finite.
+        )
+        return base_side.union({new_side_condition})
+
     def print_structure(self):
         base_rank = self.base_rank
         param_quant = self.param_quant
@@ -1184,6 +1307,8 @@ def strict_immut_order_axioms(order_formula,sort_dict):
         order_formula(sym2,vars_forall_dict1,vars_forall_dict2))
     return lambda sym1,sym2 : And(strong_antisym(sym1,sym2),transitivity(sym1,sym2),immutability(sym1,sym2))
 
+#we currently use this constructor for timers,
+#but we can make a new constructor just for timers. 
 class PositionInOrderFreeRank(FreeRank):
     #now the implementation is like in the paper (29/9)
     def __init__(self,
@@ -1199,6 +1324,8 @@ class PositionInOrderFreeRank(FreeRank):
         self.equal = self.create_equal()
         self.reduced = self.create_reduced()
         self.conserved = self.create_conserved() 
+        self.min = self.create_min()
+        self.side = self.create_side()
 
     def create_any(self,formula):
         terms_subst = self.terms_subst
@@ -1237,6 +1364,21 @@ class PositionInOrderFreeRank(FreeRank):
                 strict_immut_order_axioms(order_formula,param_order)(sym1,sym2)
             )
         return self.create_any(conserved_formula)
+    
+    def create_min(self):
+        order_formula = self.order_formula
+        param_order = self.param_order
+        vars_forall_dict = create_dictionary_of_variables(param_order,'_f')
+        def min_formula(sym,param):
+            return ForAll(list(vars_forall_dict.values()),
+                          Not(order_formula(sym,vars_forall_dict,param)))                
+            
+        return self.create_any(min_formula)
+
+    #currently writing that there are no side conditions but in practice it's more complicated maybe
+    #because i am assuming this is only used for timers
+    def create_side(self):
+        return set()
 
     def print_structure(self):
         print('Pos',end='')
