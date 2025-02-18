@@ -33,7 +33,11 @@ def ticket():
     }
     
     def succ(sym,u,v):
-        return
+        return And(
+            sym['le'](u,v),
+            Not(u==v),
+            ForAll(X,Implies(sym['le'](u,X),Or(sym['le'](v,X),X==u)))
+        )
 
     def order_le(sym):
         return And(
@@ -84,7 +88,7 @@ def ticket():
             sym2['service']==sym1['service'],
             succ(sym1,sym1['next_ticket'],sym2['next_ticket'])
         )
-    tr_step12 = ('step12',step12,param_step12)
+    tr_step12 = ('step12',param_step12,step12)
 
     param_step22 = {'t':Thread,'k':Ticket}
     def step22(sym1,sym2,param):
@@ -106,7 +110,7 @@ def ticket():
             sym2['service']==sym1['service'],
             sym2['next_ticket']==sym1['next_ticket'],
         )
-    tr_step22 = ('step22',step22,param_step22)
+    tr_step22 = ('step22',param_step22,step22)
 
     param_step23 = {'t':Thread,'k':Ticket}
     def step23(sym1,sym2,param):
@@ -128,7 +132,7 @@ def ticket():
             sym2['service']==sym1['service'],
             sym2['next_ticket']==sym1['next_ticket'],
         )
-    tr_step23 = ('step23',step23,param_step23)
+    tr_step23 = ('step23',param_step23,step23)
 
     param_step31 = {'t':Thread}
     def step31(sym1,sym2,param):
@@ -147,7 +151,7 @@ def ticket():
             succ(sym1,sym1['service'],sym2['service']),
             sym2['next_ticket']==sym1['next_ticket'],
         )
-    tr_step31 = ('step31',step31,param_step31)
+    tr_step31 = ('step31',param_step31,step31)
 
     transitions = [tr_step12,tr_step22,tr_step23,tr_step31]
     ts = TS(sorts,axiom,init,transitions,constant_sym,relation_sym,function_sym)
@@ -168,17 +172,17 @@ def ticket():
     #NOT TESTED
 
 
-    # pre = intersection.create_state("_pre")
-    # pre_sym = pre.get_dict()
-    # post = intersection.create_state("_post")
-    # post_sym = post.get_dict()
-    # print("---Axioms---")
-    # print(intersection.axiom(pre_sym))
-    # print(intersection.axiom(post_sym))
-    # print("---Init---")
-    # print(intersection.init(pre_sym))
-    # print("---Transition---")
-    # print(intersection.tr(pre_sym, post_sym))
+    pre = intersection.create_state("_pre")
+    pre_sym = pre.get_dict()
+    post = intersection.create_state("_post")
+    post_sym = post.get_dict()
+    print("---Axioms---")
+    print(intersection.axiom(pre_sym))
+    print(intersection.axiom(post_sym))
+    print("---Init---")
+    print(intersection.init(pre_sym))
+    print("---Transition---")
+    print(intersection.tr(pre_sym, post_sym))
 
 
 ticket()
