@@ -113,12 +113,13 @@ def trivial_termination_with_timers():
         [skd_timer,trivial_rank],
         [on,not_on]
     )
+    all_skd_timers = ParPointwiseFreeRank(timer_for_on,param_n)
+
     timer_start = PositionInOrderFreeRank(
         lambda sym,param1,param2 : param1['x']<param2['x'],
         param_int,
         {'x':lambda sym,param:sym['t_<start>']}
     )
-    all_skd_timers = ParPointwiseFreeRank(timer_for_on,param_n)
     
     conditional_timer = LinFreeRank(
         [all_skd_timers,timer_start],
