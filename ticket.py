@@ -217,6 +217,7 @@ def ticket():
         )
     
     #timer invariant
+    #you would be able to clean up the invariant if the timers had more precise semantics
     def timer_invariant(sym):
         return And(
             ForAll(T,sym['t_<G(F(scheduled(T)))>'](T)==0),
@@ -229,9 +230,9 @@ def ticket():
             )
         )
     
+    
     invariant = lambda sym: And(system_invariant(sym),timer_invariant(sym))
     
-    #intersection.check_inductiveness(invariant)
 
     #system rank
     #difference in ticket between ticket of violating node? and service
@@ -244,24 +245,14 @@ def ticket():
     bin = BinaryFreeRank(between_service_and_skolem_ticket,param_k)
     diff_ticket_service = ParPointwiseFreeRank(bin,param_k)
 
-    #different way to say the same thing?
-    # param_kt = {'k1':Ticket,'k_skol':Ticket}
-    # predicate = lambda sym: And(
-    #     sym['le'](sym['service'],sym['k1']),
-    #     sym['le'](sym['k1'],sym['k_skol']),
-    #     sym['m'](sym['skolem_thread'],sym['k_skol'])
-    # )
-
     param_t = {'t':Thread}
     active = lambda sym,param: sym['m'](param['t'],sym['service'])
     not_active = lambda sym,param: Not(active(sym,param))
-
     not_pc3 = lambda sym,param: Not(sym['pc3'](param['t']))
     bin_not_pc3 = BinaryFreeRank(not_pc3,param_t)
     number_not_pc3 = ParPointwiseFreeRank(bin_not_pc3,param_t)
 
     system_rank = LexFreeRank([diff_ticket_service,number_not_pc3])
-
 
     #timer rank
     #timers of the scheduling of the node that holds the service
@@ -285,27 +276,21 @@ def ticket():
         param_int,
         {'x':lambda sym,param:sym['t_<And(pc2(skolem_thread), G(Not(pc3(skolem_thread))))>']}
     )
-    trigger_timer_positive = lambda sym,param: sym['t_<And(pc2(skolem_thread), G(Not(pc3(skolem_thread))))>']>=0
-    trigger_timer_negative = lambda sym,param: Not(trigger_timer_positive(sym,param))
+
+    after_trigger = lambda sym,param: And(sym['t_<G(Not(pc3(skolem_thread)))>']==0,sym['pc2'](sym['skolem_thread']))
+    before_trigger = lambda sym,param: Not(after_trigger(sym,param))
     
-    after_trigger_rank = LexFreeRank([system_rank,all_active_sched_timers])
-
-    #no such trick works
-    #very confused
-    trigger_rank_only_if_positive = LinFreeRank(
-        [trigger_timer,trivial_rank],
-        [trigger_timer_positive,trigger_timer_negative]
+    system_and_scheduling_rank = LexFreeRank(
+        [system_rank,all_active_sched_timers],
     )
-    diff_ticket_service_only_if_trigger_happened = LinFreeRank(
-        [diff_ticket_service,trivial_rank],
-        [trigger_timer_negative,trigger_timer_positive]
+
+    rank = LinFreeRank(
+        [trigger_timer,system_and_scheduling_rank],
+        [before_trigger,after_trigger]
     )
-    pointwise = PointwiseFreeRank([trigger_rank_only_if_positive,diff_ticket_service_only_if_trigger_happened])
-
-
-    proof = TerminationProof(pointwise,invariant)
+    
+    proof = TerminationProof(rank,invariant)
     proof.check_proof(intersection)
-    # proof.premise_conserved(intersection)
     
 
 ticket()
