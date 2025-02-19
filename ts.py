@@ -631,7 +631,7 @@ class LinFreeRank(FreeRank):
                                                                         disjoint_conds[i](sym1,param1),
                                                                         disjoint_conds[i](sym2,param2)) for i in range(n)])
 
-        pairs = [(i, j) for i in range(n) for j in range(i+1, n)]
+        pairs = [(i, j) for i in range(n) for j in range(i+1, n)] #all pairs i<j
         reduced_in_diff_comps = lambda sym1,sym2,param1={},param2={}: Or([And(disjoint_conds[i](sym1,param1),
                                                                         disjoint_conds[j](sym2,param2)) for (i,j) in pairs])
         return lambda sym1,sym2,param1={},param2={} : Or(reduced_in_same_comps(sym1,sym2,param1,param2),
@@ -647,7 +647,7 @@ class LinFreeRank(FreeRank):
                                                                         disjoint_conds[i](sym1,param1),
                                                                         disjoint_conds[i](sym2,param2)) for i in range(n)])
 
-        pairs = [(i, j) for i in range(n) for j in range(i+1, n)]
+        pairs = [(i, j) for i in range(n) for j in range(i+1, n)]  #all pairs i<j
         reduced_in_diff_comps = lambda sym1,sym2,param1={},param2={}: Or([And(disjoint_conds[i](sym1,param1),
                                                                         disjoint_conds[j](sym2,param2)) for (i,j) in pairs])
         return lambda sym1,sym2,param1={},param2={} : Or(conserved_in_same_comps(sym1,sym2,param1,param2),

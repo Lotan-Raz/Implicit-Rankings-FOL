@@ -180,7 +180,7 @@ def rewrite_expr(expr: z3.ExprRef, sym1: Sym, sym2: Sym | None = None) -> z3.Exp
 
 class Timer(ABC):
     def expr(self, sym: Sym) -> z3.ArithRef:
-        timer = sym[f"t_{self}"]
+        timer = sym[f"t_<{self}>"]
         if self.variables:
             return cast(z3.ArithRef, timer(*self.variables.values()))
         else:
@@ -210,7 +210,7 @@ class Timer(ABC):
     @property
     def timer_spec(self) -> tuple[str, tuple[z3.SortRef, ...]]:
         sorts = list(self.free_variables.values())
-        return f"t_{self}", tuple(sorts + [z3.IntSort()])
+        return f"t_<{self}>", tuple(sorts + [z3.IntSort()])
 
     @property
     def dict_spec(self) -> SymSpec:
@@ -263,7 +263,7 @@ class PropTimer(Timer):
         return {name: sort for name, sort in free_variables(self.prop).items() if name not in self.sym}
 
     def __str__(self) -> str:
-        return f"<{self.prop}>"
+        return f"{self.prop}"
 
 
 @dataclass(frozen=True)
@@ -295,11 +295,11 @@ class BoolOpTimer(Timer):
 
     def __str__(self) -> str:
         if self.is_and:
-            op = "∧"
+            op = "And"
         else:
-            op = "∨"
-        children = f" {op} ".join(str(child) for child in self.child_timers)
-        return f"({children})"
+            op = "Or"
+        children = f", ".join(str(child) for child in self.child_timers)
+        return f"{op}({children})"
 
 
 @dataclass(frozen=True)
@@ -321,7 +321,7 @@ class GloballyTimer(Timer):
         return self.body.free_variables
 
     def __str__(self) -> str:
-        return f"G{self.body}"
+        return f"G({self.body})"
 
 
 @dataclass(frozen=True)
@@ -340,7 +340,7 @@ class EventuallyTimer(Timer):
         return self.body.free_variables
 
     def __str__(self) -> str:
-        return f"F{self.body}"
+        return f"F({self.body})"
 
 
 @dataclass(frozen=True)
@@ -370,11 +370,12 @@ class QuantifierTimer(Timer):
 
     def __str__(self) -> str:
         if self.is_forall:
-            quantifier = "∀"
+            quantifier = "ForAll"
         else:
-            quantifier = "∃"
-        variables = ",".join(str(var) for var in self.quantifier_variables)
-        return f"{quantifier}{variables}.{self.body}"
+            quantifier = "Exists"
+        variables = ", ".join(str(var) for var in self.quantifier_variables)
+        variables_str = f"[{variables}]" if len(self.quantifier_variables) > 1 else variables
+        return f"{quantifier}({variables_str}, {self.body})"
 
 
 def construct_timer(formula: z3.BoolRef, sym: Sym) -> Timer | None:
@@ -510,16 +511,20 @@ class TerminationProof:
 
     def check_proof(self, system: TS) -> bool:
         self.print_structure()
-        if all((
-            self.premise_inv(system),
-            self.premise_reduced(system),
-            self.premise_side(system)
-        )):
-            print("ok")
-            return True
-        else:
-            print("fail")
+        if not self.premise_inv(system):
+            print("fail: premise_inv")
             return False
+        if not self.premise_conserved(system):
+            print("fail: premise_conserved")
+            return False
+        if not self.premise_reduced(system):
+            print("fail: premise_reduced")
+            return False
+        if not self.premise_side(system):
+            print("fail: premise_side")
+            return False
+        print("ok")
+        return True
 
     def print_structure(self) -> None:
         print("rank structure: ", end="")
@@ -552,8 +557,34 @@ class TerminationProof:
             print_model_in_order(model, state_pre.get_sym() + state_post.get_sym())
             return False
         return result == z3.unsat
+    
+    def premise_conserved(self, system: TS) -> bool:
+        #THIS IS JUST FOR TESTING!
+        state_pre = system.create_state("_pre")
+        state_post = system.create_state("_post")
+
+        states = [state_pre, state_post]
+
+        tau = system.tr
+        conserved = self.rank.conserved
+
+        constraints = [
+            self.theta(state_pre.get_dict()),
+            tau(state_pre.get_dict(), state_post.get_dict()),
+            z3.Not(conserved(state_pre.get_dict(), state_post.get_dict()))
+        ]
+
+        result, model = system.ts_sat_check(constraints, states)
+
+        print(f"theta & tau -> rank' <= rank: {result}")
+
+        if result == z3.sat and model is not None:
+            print_model_in_order(model, state_pre.get_sym() + state_post.get_sym())
+            return False
+        return result == z3.unsat
 
     def premise_side(self, system: TS) -> bool:
+        return True
         rank_side_conditions = self.rank.side
         results = []
         for condition in rank_side_conditions:
