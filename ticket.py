@@ -5,6 +5,8 @@ from timers import *
 
 def ticket():
 
+    #Didnt check side conditions - might not hold
+
     Thread = DeclareSort('Thread')
     Ticket = DeclareSort('Ticket')
     X = Const('X',Ticket)
@@ -177,6 +179,14 @@ def ticket():
             F(And(pc2(skolem_thread),G(Not(pc3(skolem_thread)))))
         )
     )
+    #non-negated property 
+    formula = foltl_nnf(z3.Not(
+        Implies(
+            ForAll(T,G(F(scheduled(T)))),
+            ForAll(T,G(Implies(pc2(T),F(pc3(T)))))
+        )
+    ))
+    #user can write timer for Not(G(Implies(pc2(T),F(pc3(T))))
 
     #here we only give the def. of the skolem thread and not use it directly. 
     formula = foltl_nnf(z3.Not(
@@ -187,11 +197,11 @@ def ticket():
             Implies(
             ForAll(T,G(F(scheduled(T)))),
             ForAll(T,G(Implies(pc2(T),F(pc3(T)))))
-        )
-        )
+        ))
     ))
 
     timer_system = timer_transition_system(simplified_formula,{"skolem_thread":Thread})
+    print(timer_system.constant_sym)
     intersection = IntersectionTS(ts, timer_system)
 
     #system invariant
@@ -220,15 +230,16 @@ def ticket():
     #you would be able to clean up the invariant if the timers had more precise semantics
     def timer_invariant(sym):
         return And(
-            ForAll(T,sym['t_<G(F(scheduled(T)))>'](T)==0),
-            Or(sym['t_<And(pc2(skolem_thread), G(Not(pc3(skolem_thread))))>']>=0,
-                And(sym['t_<G(Not(pc3(skolem_thread)))>']==0,
-                    sym['pc2'](sym['skolem_thread']),
+            ForAll(T,sym['t_<G(F(scheduled(T)))>'](T)==0), # ForAll(T,G(F(scheduled(T)))
+            Or(sym['t_<And(pc2(skolem_thread), G(Not(pc3(skolem_thread))))>']>=0, # F(And(...))
+                And(sym['t_<G(Not(pc3(skolem_thread)))>']==0, # G(...)
+                    sym['pc2'](sym['skolem_thread']), 
                     #sym['t_<pc2(skolem_thread)>']==0 #such an invariant doesn't hold without the better implementation of timers - equivalent to the one above
                     ForAll(K,Implies(sym['m'](sym['skolem_thread'],K),sym['le'](sym['service'],K)))
                 )
             )
         )
+    #maybe the user gives this as a temporal_invariant()
     
     
     invariant = lambda sym: And(system_invariant(sym),timer_invariant(sym))

@@ -1,3 +1,4 @@
+import z3
 from z3 import *
 from typing import Dict, Callable, Tuple, List, Any
 import itertools
