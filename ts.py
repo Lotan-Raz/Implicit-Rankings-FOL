@@ -70,7 +70,7 @@ def sat_check(constraints: List[z3.BoolRef],
     else: 
         return (result,None)
 
-def print_model_in_order(model,symbols):
+def print_model_in_order(model,symbols,print_model_to_file=True):
     sorts = model.sorts()
     for s in sorts:
         print(model.get_universe(s))
@@ -80,6 +80,14 @@ def print_model_in_order(model,symbols):
     except Exception as e:
         print("A KeyError occurred:", e)
         print(model)
+    if print_model_to_file:
+        with open('model.txt', 'w') as f:
+            try:
+                for symbol in symbols:
+                    f.write(str(symbol) + " : " + str(model[symbol]) + "\n")
+            except Exception as e:
+                print("An error occurred while writing the model to file:", e)
+                f.write(str(model))
 
 def size_constraint(sort,m):
     new_variables = [Const('size'+str(sort)+str(i),sort) for i in range(m)]
@@ -319,7 +327,7 @@ class FreeRank:
         state1 = ts.create_state('1')
         var_dict0 = create_dictionary_of_variables(self.param,'0')
         var_dict1 = create_dictionary_of_variables(self.param,'1')
-        print(self.conserved(state0.get_dict(),state1.get_dict(),var_dict0,var_dict1))
+        print(simplify(self.conserved(state0.get_dict(),state1.get_dict(),var_dict0,var_dict1)))
 
     def print_equal(self,ts):
         state0 = ts.create_state('0')
